@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu de l'Oie Enchanté - Forêt Douce</title>
+    <!-- Tailwind CSS pour un design moderne et responsive -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter et Quicksand pour une ambiance douce et cosy -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Quicksand', 'Inter', sans-serif;
+            background-color: #f3f8f2;
+            color: #2c4a3e;
+            overflow-x: hidden;
+        }
+        .board-container {
+            position: relative;
+            width: 100%;
+            max-width: 650px;
+            aspect-ratio: 1 / 1;
+            margin: auto;
+        }
+        /* Custom scrollbar pour l'historique */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #e2ede0;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #a3c1ad;
+            border-radius: 10px;
+        }
+        /* Animation de flottement doux pour les pions et décors */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+        /* Animation du dé */
+        @keyframes roll {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(360deg) scale(1.2); }
+            100% { transform: rotate(720deg) scale(1); }
+        }
+        .rolling {
+            animation: roll 0.6s ease-in-out;
+        }
+        /* Ombrage doux type Neumorphisme / Cosy */
+        .cosy-shadow {
+            box-shadow: 0 10px 25px -5px rgba(85, 122, 98, 0.15), 0 8px 10px -6px rgba(85, 122, 98, 0.1);
+        }
+        .cosy-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(163, 193, 173, 0.3);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between py-6 px-4 selection:bg-emerald-200">
+
+    <!-- En-tête de l'application -->
+    <header class="text-center mb-6">
+        <div class="inline-flex items-center gap-2 bg-emerald-100 px-4 py-1.5 rounded-full text-emerald-800 text-sm font-semibold mb-2 shadow-sm">
+            <span>🌿</span> Forêt Enchantée &bull; Édition Douce <span>🌸</span>
+        </div>
+        <h1 class="text-3xl md:text-4xl font-bold text-emerald-900 tracking-wide">Le Jeu de l'Oie</h1>
+        <p class="text-emerald-700 text-sm mt-1">Un voyage poétique au cœur de la nature</p>
+    </header>
+
+    <!-- Contenu Principal -->
+    <main class="flex-1 max-w-6xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- Panneau de Gauche : Configuration & Joueurs & Cartes Action -->
+        <section class="lg:col-span-4 space-y-4">
+            <!-- Carte Configuration / État du jeu -->
+            <div class="cosy-card rounded-2xl p-5 cosy-shadow">
+                <h2 class="text-lg font-bold text-emerald-900 mb-3 flex items-center gap-2">
+                    <span>🌱</span> Configuration de la Partie
+                </h2>
+                
+                <div id="setup-panel" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-emerald-800 mb-1">Nombre de joueurs (1 à 4)</label>
+                        <div class="flex gap-2">
+                            <button onclick="setPlayerCount(1)" class="player-count-btn flex-1 py-2 rounded-xl font-bold border border-emerald-200 transition bg-emerald-600 text-white shadow-sm" data-count="1">1 Joueur</button>
+                            <button onclick="setPlayerCount(2)" class="player-count-btn flex-1 py-2 rounded-xl font-bold border border-emerald-200 transition bg-white text-emerald-800 hover:bg-emerald-50" data-count="2">2 Joueurs</button>
+                            <button onclick="setPlayerCount(3)" class="player-count-btn flex-1 py-2 rounded-xl font-bold border border-emerald-200 transition bg-white text-emerald-800 hover:bg-emerald-50" data-count="3">3 Joueurs</button>
+                            <button onclick="setPlayerCount(4)" class="player-count-btn flex-1 py-2 rounded-xl font-bold border border-emerald-200 transition bg-white text-emerald-800 hover:bg-emerald-50" data-count="4">4 Joueurs</button>
+                        </div>
+                    </div>
+
+                    <div id="players-config-container" class="space-y-2 pt-2">
+                        <!-- Généré dynamiquement -->
+                    </div>
+
+                    <button onclick="startGame()" class="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl shadow-md transition transform active:scale-95 flex items-center justify-center gap-2">
+                        <span>✨</span> Commencer le Voyage
+                    </button>
+                </div>
+
+                <!-- Panneau de Contrôle en jeu (masqué au début) -->
+                <div id="game-control-panel" class="hidden space-y-4">
+                    <div class="bg-emerald-50 rounded-xl p-4 border border-emerald-200 text-center">
+                        <span class="text-xs uppercase tracking-wider text-emerald-600 font-bold block mb-1">Tour Actuel</span>
+                        <div id="current-player-display" class="text-xl font-bold text-emerald-900 flex items-center justify-center gap-2">
+                            <!-- Rempli dynamiquement -->
+                        </div>
+                        <div id="turn-status-msg" class="text-sm text-emerald-700 mt-1 italic">Prêt à lancer le dé...</div>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-4 bg-white p-4 rounded-xl border border-emerald-100 shadow-sm">
+                        <div class="text-center flex-1">
+                            <span class="text-xs text-gray-500 block mb-1">Résultat du Dé</span>
+                            <div id="dice-container" class="text-4xl font-bold text-emerald-800 h-12 flex items-center justify-center">
+                                🎲
+                            </div>
+                        </div>
+                        <button id="roll-dice-btn" onclick="rollDice()" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                            <span>🎲</span> Lancer le Dé
+                        </button>
+                    </div>
+
+                    <button onclick="resetGame()" class="w-full py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-sm font-semibold rounded-xl transition">
+                        🔄 Recommencer une partie
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main de Cartes Action Tactiques -->
+            <div id="cards-container-card" class="cosy-card rounded-2xl p-5 cosy-shadow hidden">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>🃏</span> Cartes Action (<span id="cards-count-label">0</span>)
+                    </h3>
+                    <span class="text-[11px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-medium">Tactique Mille-Bornes</span>
+                </div>
+                <div id="player-hand-list" class="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
+                    <!-- Généré dynamiquement -->
+                </div>
+            </div>
+
+            <!-- Liste des Joueurs en direct -->
+            <div id="players-live-card" class="cosy-card rounded-2xl p-5 cosy-shadow hidden">
+                <h3 class="text-sm font-bold text-emerald-900 mb-3 flex items-center gap-2 uppercase tracking-wider">
+                    <span>🦆</span> Compagnons de route
+                </h3>
+                <div id="players-live-list" class="space-y-2.5">
+                    <!-- Généré dynamiquement -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Centre : Le Plateau de Jeu -->
+        <section class="lg:col-span-8 flex flex-col items-center">
+            <div class="cosy-card rounded-3xl p-4 md:p-6 cosy-shadow w-full flex flex-col items-center relative overflow-hidden">
+                
+                <!-- Éléments décoratifs floraux aux coins -->
+                <div class="absolute top-3 left-3 text-2xl floating">🌸</div>
+                <div class="absolute top-3 right-3 text-2xl floating" style="animation-delay: 1s;">🌿</div>
+                <div class="absolute bottom-3 left-3 text-2xl floating" style="animation-delay: 1.5s;">🌼</div>
+                <div class="absolute bottom-3 right-3 text-2xl floating" style="animation-delay: 0.5s;">🍃</div>
+
+                <!-- Plateau SVG en spirale -->
+                <div class="board-container">
+                    <svg id="game-board-svg" class="w-full h-full drop-shadow-md" viewBox="0 0 600 600">
+                        <!-- Fond doux -->
+                        <rect width="600" height="600" rx="30" fill="#f8faf6" stroke="#d5e3d0" stroke-width="2"/>
+                        <!-- Les cases et liens de la spirale seront injectés ici en JS -->
+                        <g id="board-path-group"></g>
+                        <g id="board-tiles-group"></g>
+                        <g id="board-tokens-group"></g>
+                    </svg>
+                </div>
+
+                <!-- Légende rapide des cases spéciales -->
+                <div class="w-full mt-4 pt-4 border-t border-emerald-100 grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-xs text-emerald-800">
+                    <div class="bg-emerald-50 p-1.5 rounded-lg border border-emerald-100">🌉 <b>Pont</b> (6)</div>
+                    <div class="bg-emerald-50 p-1.5 rounded-lg border border-emerald-100">💧 <b>Puits</b> (31)</div>
+                    <div class="bg-emerald-50 p-1.5 rounded-lg border border-emerald-100">🔒 <b>Prison</b> (52)</div>
+                    <div class="bg-emerald-50 p-1.5 rounded-lg border border-emerald-100">🌀 <b>Labyrinthe</b> (42)</div>
+                    <div class="bg-emerald-50 p-1.5 rounded-lg border border-emerald-100">💀 <b>Tête de mort</b> (58)</div>
+                    <div class="bg-emerald-50 p-1.5 rounded-lg border border-emerald-100">🎯 <b>Arrivée</b> (63)</div>
+                </div>
+            </div>
+
+            <!-- Historique des tours poétique -->
+            <div class="cosy-card rounded-2xl p-4 cosy-shadow w-full mt-4">
+                <h3 class="text-xs font-bold text-emerald-900 mb-2 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>📜</span> Chroniques de la Forêt
+                </h3>
+                <div id="history-log" class="h-28 overflow-y-auto space-y-1.5 pr-2 text-sm text-emerald-800 font-medium">
+                    <div class="text-gray-400 italic text-center py-6">La partie n'a pas encore commencé...</div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Pied de page -->
+    <footer class="text-center mt-6 text-xs text-emerald-700/80">
+        Jeu de l'Oie Cosy &bull; Conçu avec douceur pour une expérience relaxante 🌸
+    </footer>
+
+    <!-- Fenêtre Modale de Message / Victoire -->
+    <div id="modal-overlay" class="fixed inset-0 bg-emerald-950/40 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+        <div id="modal-content" class="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full cosy-shadow text-center space-y-4 transform scale-95 transition-all">
+            <div id="modal-icon" class="text-5xl mb-2">🎉</div>
+            <h3 id="modal-title" class="text-2xl font-bold text-emerald-900">Titre</h3>
+            <p id="modal-text" class="text-emerald-700 text-sm leading-relaxed">Message explicatif...</p>
+            <button onclick="closeModal()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition">
+                Continuer
+            </button>
+        </div>
+    </div>
+
+    <!-- Script Logique du Jeu -->
+    <script>
+        // Définition des 63 cases du jeu de l'oie en spirale
+        const TOTAL_TILES = 63;
+        let tileCoordinates = [];
+
+        function generateSpiralCoordinates() {
+            let coords = [];
+            let center = 300;
+            for (let i = 1; i <= TOTAL_TILES; i++) {
+                let progress = (i - 1) / (TOTAL_TILES - 1);
+                let angle = progress * 4.8 * Math.PI + 0.2;
+                let radius = 240 * (1 - progress * 0.82);
+                let x = center + Math.cos(angle) * radius;
+                let y = center + Math.sin(angle) * radius * 0.95;
+                coords.push({ index: i, x: Math.round(x), y: Math.round(y) });
+            }
+            return coords;
+        }
+
+        tileCoordinates = generateSpiralCoordinates();
+
+        const SPECIAL_TILES = {
+            6: { type: 'bridge', name: 'Le Pont', desc: 'De pont en pont, vous avancez directement à la case 12 !', target: 12, icon: '🌉' },
+            12: { type: 'bridge-target', name: 'Arrivée du Pont', desc: 'Étape sur le pont.', icon: '🌉' },
+            19: { type: 'inn', name: 'L’Hôtel', desc: 'Un repos bien mérité ! Vous passez votre prochain tour.', skipTurns: 1, icon: '🏨' },
+            31: { type: 'well', name: 'Le Puits', desc: 'Glou glou ! Vous êtes tombé dans le puits. Attendez qu’un autre joueur vienne vous délivrer.', imprisoned: true, icon: '💧' },
+            42: { type: 'labyrinth', name: 'Le Labyrinthe', desc: 'Vous vous perdez dans les sentiers fleuris... Reculez à la case 30.', target: 30, icon: '🌀' },
+            52: { type: 'prison', name: 'La Prison', desc: 'Enfermé dans la tour végétale ! Attendez un autre joueur.', imprisoned: true, icon: '🔒' },
+            58: { type: 'skull', name: 'La Tête de Mort', desc: 'Oups ! Un mauvais pas dans les ronces, retour à la case départ (1).', target: 1, icon: '💀' },
+            63: { type: 'win', name: 'Le Jardin Secret (Arrivée)', desc: 'Victoire ! Vous avez atteint le cœur de la forêt enchantée.', icon: '🎯' }
+        };
+
+        // Définition des Cartes Action Tactiques (Inspiré Mille-Bornes / Nature)
+        const ACTION_CARDS_DEFS = [
+            { id: 'wind', name: 'Vent favorable', icon: '🍃', desc: 'Avance immédiatement de +3 cases.', type: 'self', effect: (p) => { movePlayerAbsolute(currentPlayerIndex, p.pos + 3); } },
+            { id: 'thorn', name: 'Ronces gênantes', icon: '🌿', desc: 'Cible un adversaire et le fait reculer de -3 cases.', type: 'target', effect: (targetIdx) => { let tp = players[targetIdx]; movePlayerAbsolute(targetIdx, Math.max(1, tp.pos - 3)); } },
+            { id: 'shield', name: 'Aura protectrice', icon: '✨', desc: 'Immunise contre le prochain piège ou carte ennemie.', type: 'self', effect: (p) => { p.shield = true; } },
+            { id: 'extra_turn', name: 'Pas pressé', icon: '⚡', desc: 'Permet de relancer le dé immédiatement après votre tour.', type: 'self', effect: (p) => { p.extraTurn = true; } },
+            { id: 'swap', name: 'Échange fleuri', icon: '🔄', desc: 'Échange votre position exacte avec le joueur de votre choix.', type: 'target', effect: (targetIdx) => { let curPos = players[currentPlayerIndex].pos; let targetPos = players[targetIdx].pos; players[currentPlayerIndex].pos = targetPos; players[targetIdx].pos = curPos; renderBoard(); renderTokens(); } }
+        ];
+
+        let players = [
+            { id: 0, name: 'Oie Pastel', color: '#ffb5a7', isAI: false, pos: 1, skipTurn: 0, inWell: false, inPrison: false, icon: '🦆', cards: [], shield: false, extraTurn: false },
+            { id: 1, name: 'Canard Vert', color: '#b5ead7', isAI: true, pos: 1, skipTurn: 0, inWell: false, inPrison: false, icon: '🦢', cards: [], shield: false, extraTurn: false },
+            { id: 2, name: 'Petite Oie', color: '#ffdac1', isAI: true, pos: 1, skipTurn: 0, inWell: false, inPrison: false, icon: '🐥', cards: [], shield: false, extraTurn: false },
+            { id: 3, name: 'Sœurette', color: '#e2f0cb', isAI: true, pos: 1, skipTurn: 0, inWell: false, inPrison: false, icon: '🐤', cards: [], shield: false, extraTurn: false }
+        ];
+
+        let playerCount = 1;
+        let currentPlayerIndex = 0;
+        let gameActive = false;
+        let isAnimating = false;
+        let pendingCardAction = null; // Pour cibler un adversaire
+
+        function setPlayerCount(count) {
+            playerCount = count;
+            document.querySelectorAll('.player-count-btn').forEach(btn => {
+                if (parseInt(btn.dataset.count) === count) {
+                    btn.className = "player-count-btn flex-1 py-2 rounded-xl font-bold border border-emerald-200 transition bg-emerald-600 text-white shadow-sm";
+                } else {
+                    btn.className = "player-count-btn flex-1 py-2 rounded-xl font-bold border border-emerald-200 transition bg-white text-emerald-800 hover:bg-emerald-50";
+                }
+            });
+            renderPlayerConfigInputs();
+        }
+
+        function renderPlayerConfigInputs() {
+            const container = document.getElementById('players-config-container');
+            container.innerHTML = '';
+            const avatars = ['🦆', '🦢', '🐥', '🐤'];
+            const defaultNames = ['Oie Pastel', 'Canard Vert', 'Petite Oie', 'Sœurette'];
+            
+            for (let i = 0; i < playerCount; i++) {
+                let div = document.createElement('div');
+                div.className = "flex items-center gap-2 bg-white p-2.5 rounded-xl border border-emerald-100 shadow-sm";
+                div.innerHTML = `
+                    <span class="text-xl">${avatars[i]}</span>
+                    <input type="text" id="player-name-${i}" value="${defaultNames[i]}" class="flex-1 bg-emerald-50/50 px-3 py-1 rounded-lg text-sm font-semibold text-emerald-900 border border-emerald-200 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <select id="player-type-${i}" class="bg-emerald-50 px-2 py-1 rounded-lg text-xs font-semibold text-emerald-800 border border-emerald-200">
+                        <option value="human" ${i === 0 ? 'selected' : ''}>Humain</option>
+                        <option value="ai" ${i > 0 ? 'selected' : ''}>IA Douce</option>
+                    </select>
+                `;
+                container.appendChild(div);
+            }
+        }
+
+        function renderBoard() {
+            const pathGroup = document.getElementById('board-path-group');
+            const tilesGroup = document.getElementById('board-tiles-group');
+            pathGroup.innerHTML = '';
+            tilesGroup.innerHTML = '';
+
+            let pathD = `M ${tileCoordinates[0].x} ${tileCoordinates[0].y}`;
+            for (let i = 1; i < tileCoordinates.length; i++) {
+                pathD += ` L ${tileCoordinates[i].x} ${tileCoordinates[i].y}`;
+            }
+            
+            let pathLine = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            pathLine.setAttribute("d", pathD);
+            pathLine.setAttribute("fill", "none");
+            pathLine.setAttribute("stroke", "#c2d9bc");
+            pathLine.setAttribute("stroke-width", "8");
+            pathLine.setAttribute("stroke-linecap", "round");
+            pathLine.setAttribute("stroke-dasharray", "4 8");
+            pathGroup.appendChild(pathLine);
+
+            tileCoordinates.forEach((coord, idx) => {
+                let tileNum = idx + 1;
+                let g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                g.setAttribute("transform", `translate(${coord.x}, ${coord.y})`);
+
+                let circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute("r", tileNum === 63 ? "24" : (tileNum % 9 === 0 ? "18" : "15"));
+                
+                let fillColor = "#ffffff";
+                let strokeColor = "#a3c1ad";
+                let strokeWidth = "2";
+
+                if (tileNum === 63) {
+                    fillColor = "#ffeb99";
+                    strokeColor = "#e6b800";
+                } else if (SPECIAL_TILES[tileNum]) {
+                    fillColor = "#e8f5e9";
+                    strokeColor = "#66bb6a";
+                    strokeWidth = "2.5";
+                } else if (tileNum % 9 === 0) {
+                    fillColor = "#e0f2f1";
+                    strokeColor = "#26a69a";
+                }
+
+                circle.setAttribute("fill", fillColor);
+                circle.setAttribute("stroke", strokeColor);
+                circle.setAttribute("stroke-width", strokeWidth);
+                g.appendChild(circle);
+
+                let text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("dominant-baseline", "central");
+                text.setAttribute("font-size", tileNum === 63 || SPECIAL_TILES[tileNum] ? "14" : "10");
+                text.setAttribute("font-weight", "bold");
+                text.setAttribute("fill", "#2c4a3e");
+                
+                if (SPECIAL_TILES[tileNum]) {
+                    text.textContent = SPECIAL_TILES[tileNum].icon;
+                } else if (tileNum % 9 === 0) {
+                    text.textContent = '🦆';
+                } else {
+                    text.textContent = tileNum;
+                }
+                g.appendChild(text);
+                tilesGroup.appendChild(g);
+            });
+
+            renderTokens();
+        }
+
+        function renderTokens() {
+            const tokensGroup = document.getElementById('board-tokens-group');
+            tokensGroup.innerHTML = '';
+
+            let playersByTile = {};
+            players.slice(0, playerCount).forEach(p => {
+                if (!playersByTile[p.pos]) playersByTile[p.pos] = [];
+                playersByTile[p.pos].push(p);
+            });
+
+            Object.keys(playersByTile).forEach(tileStr => {
+                let tileNum = parseInt(tileStr);
+                let tilePlayers = playersByTile[tileNum];
+                let coord = tileCoordinates[tileNum - 1];
+
+                tilePlayers.forEach((p, idx) => {
+                    let offsetX = (idx % 2 === 0 ? -1 : 1) * (idx > 1 ? 8 : 4);
+                    let offsetY = (Math.floor(idx / 2) === 0 ? -1 : 1) * 6;
+
+                    let g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                    g.setAttribute("transform", `translate(${coord.x + offsetX}, ${coord.y + offsetY})`);
+
+                    let circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    circle.setAttribute("r", "12");
+                    circle.setAttribute("fill", p.color);
+                    circle.setAttribute("stroke", "#ffffff");
+                    circle.setAttribute("stroke-width", "2.5");
+                    circle.setAttribute("filter", "drop-shadow(0px 2px 4px rgba(0,0,0,0.15))");
+                    g.appendChild(circle);
+
+                    let text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    text.setAttribute("text-anchor", "middle");
+                    text.setAttribute("dominant-baseline", "central");
+                    text.setAttribute("font-size", "11");
+                    text.textContent = p.icon;
+                    g.appendChild(text);
+
+                    tokensGroup.appendChild(g);
+                });
+            });
+        }
+
+        function startGame() {
+            playerCount = parseInt(playerCount);
+            const avatars = ['🦆', '🦢', '🐥', '🐤'];
+            const colors = ['#ffb5a7', '#b5ead7', '#ffdac1', '#e2f0cb'];
+
+            for (let i = 0; i < playerCount; i++) {
+                let nameInput = document.getElementById(`player-name-${i}`).value;
+                let typeSelect = document.getElementById(`player-type-${i}`).value;
+                players[i].name = nameInput || `Joueur ${i+1}`;
+                players[i].isAI = (typeSelect === 'ai');
+                players[i].pos = 1;
+                players[i].skipTurn = 0;
+                players[i].inWell = false;
+                players[i].inPrison = false;
+                players[i].icon = avatars[i];
+                players[i].color = colors[i];
+                players[i].cards = [];
+                players[i].shield = false;
+                players[i].extraTurn = false;
+            }
+
+            // Donner une carte de départ à chaque joueur
+            players.forEach(p => giveRandomCard(p));
+
+            document.getElementById('setup-panel').classList.add('hidden');
+            document.getElementById('game-control-panel').classList.remove('hidden');
+            document.getElementById('players-live-card').classList.remove('hidden');
+            document.getElementById('cards-container-card').classList.remove('hidden');
+
+            currentPlayerIndex = 0;
+            gameActive = true;
+            
+            logHistory(`✨ La partie commence avec des cartes tactiques en main !`);
+            updateUI();
+            renderBoard();
+            checkAITurn();
+        }
+
+        function resetGame() {
+            gameActive = false;
+            document.getElementById('setup-panel').classList.remove('hidden');
+            document.getElementById('game-control-panel').classList.add('hidden');
+            document.getElementById('players-live-card').classList.add('hidden');
+            document.getElementById('cards-container-card').classList.add('hidden');
+            document.getElementById('history-log').innerHTML = '<div class="text-gray-400 italic text-center py-6">La partie n\'a pas encore commencé...</div>';
+            players.forEach(p => { p.pos = 1; p.skipTurn = 0; p.inWell = false; p.inPrison = false; p.cards = []; });
+            renderBoard();
+        }
+
+        function giveRandomCard(p) {
+            let randomDef = ACTION_CARDS_DEFS[Math.floor(Math.random() * ACTION_CARDS_DEFS.length)];
+            p.cards.push({ ...randomDef, uniqueId: Math.random().toString(36).substr(2, 9) });
+        }
+
+        function updateUI() {
+            let p = players[currentPlayerIndex];
+            
+            let display = document.getElementById('current-player-display');
+            display.innerHTML = `<span style="color: ${p.color}; text-shadow: 0 1px 2px rgba(0,0,0,0.1)">${p.icon}</span> ${p.name} ${p.isAI ? '(IA)' : ''}`;
+
+            // Liste live des joueurs
+            let liveList = document.getElementById('players-live-list');
+            liveList.innerHTML = '';
+            for (let i = 0; i < playerCount; i++) {
+                let pl = players[i];
+                let isCurrent = (i === currentPlayerIndex);
+                let div = document.createElement('div');
+                div.className = `flex items-center justify-between p-2.5 rounded-xl border transition ${isCurrent ? 'bg-emerald-50 border-emerald-300 shadow-sm' : 'bg-white/50 border-emerald-100'}`;
+                let targetButtonHtml = '';
+                if (pendingCardAction && isCurrent === false) {
+                    targetButtonHtml = `<button onclick="executeTargetCardOn(${i})" class="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold animate-pulse">Cibler</button>`;
+                }
+                div.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg" style="background:${pl.color}; width:28px; height:28px; display:flex; align-items:center; justify-content:center; border-radius:50%;">${pl.icon}</span>
+                        <div>
+                            <span class="font-bold text-xs text-emerald-900 block">${pl.name}</span>
+                            <span class="text-[10px] text-emerald-600">${pl.inWell ? '💧 Puits' : (pl.inPrison ? '🔒 Prison' : 'Case ' + pl.pos)}</span>
+                        </div>
+                    </div>
+                    ${targetButtonHtml || `<span class="text-xs font-bold bg-emerald-100 text-emerald-800 px-2 py-1 rounded-lg">${pl.pos}/63</span>`}
+                `;
+                liveList.appendChild(div);
+            }
+
+            // Gestion de la main de cartes du joueur actuel
+            const handList = document.getElementById('player-hand-list');
+            const countLabel = document.getElementById('cards-count-label');
+            handList.innerHTML = '';
+            countLabel.textContent = p.cards.length;
+
+            if (p.cards.length === 0) {
+                handList.innerHTML = `<div class="text-center text-xs text-gray-400 py-3 italic">Aucune carte en main. Vous en piochez à chaque tour !</div>`;
+            } else {
+                p.cards.forEach((card, idx) => {
+                    let cardDiv = document.createElement('div');
+                    cardDiv.className = "flex items-center justify-between p-2 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl shadow-sm hover:shadow transition";
+                    cardDiv.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <span class="text-xl">${card.icon}</span>
+                            <div>
+                                <h4 class="text-xs font-bold text-emerald-900">${card.name}</h4>
+                                <p class="text-[10px] text-emerald-700 leading-tight">${card.desc}</p>
+                            </div>
+                        </div>
+                        <button onclick="useCard(${idx})" ${p.isAI ? 'disabled' : ''} class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow transition">Jouer</button>
+                    `;
+                    handList.appendChild(cardDiv);
+                });
+            }
+
+            const rollBtn = document.getElementById('roll-dice-btn');
+            if (p.isAI) {
+                rollBtn.disabled = true;
+                rollBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                rollBtn.disabled = false;
+                rollBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        // Utilisation d'une carte par le joueur
+        function useCard(cardIndex) {
+            if (!gameActive || isAnimating) return;
+            let p = players[currentPlayerIndex];
+            let card = p.cards[cardIndex];
+
+            if (card.type === 'self') {
+                p.cards.splice(cardIndex, 1);
+                logHistory(`🃏 ${p.name} utilise la carte tactique <b>${card.name}</b> ! ${card.desc}`);
+                card.effect(p);
+                updateUI();
+            } else if (card.type === 'target') {
+                // Si carte nécessite une cible adverse
+                if (playerCount === 1) {
+                    showModal("Action impossible", "Cette carte nécessite un adversaire en jeu !");
+                    return;
+                }
+                pendingCardAction = { cardIndex, card };
+                showModal("Ciblage tactique", `Sélectionnez un adversaire dans la liste de droite pour appliquer la carte ${card.name}.`);
+                updateUI();
+            }
+        }
+
+        function executeTargetCardOn(targetPlayerIdx) {
+            if (!pendingCardAction) return;
+            let p = players[currentPlayerIndex];
+            let targetP = players[targetPlayerIdx];
+
+            if (targetP.shield) {
+                targetP.shield = false;
+                p.cards.splice(pendingCardAction.cardIndex, 1);
+                logHistory(`✨ L'aura protectrice de ${targetP.name} absorbe l'effet de la carte ${pendingCardAction.card.name} !`);
+                pendingCardAction = null;
+                closeModal();
+                updateUI();
+                return;
+            }
+
+            p.cards.splice(pendingCardAction.cardIndex, 1);
+            logHistory(`🃏 ${p.name} cible ${targetP.name} avec <b>${pendingCardAction.card.name}</b> !`);
+            pendingCardAction.card.effect(targetPlayerIdx);
+            pendingCardAction = null;
+            closeModal();
+            updateUI();
+        }
+
+        function rollDice() {
+            if (!gameActive || isAnimating) return;
+            let p = players[currentPlayerIndex];
+
+            if (p.skipTurn > 0) {
+                p.skipTurn--;
+                logHistory(`🏨 ${p.name} se repose paisiblement à l'hôtel et passe son tour.`);
+                nextTurn();
+                return;
+            }
+
+            if (p.inWell || p.inPrison) {
+                logHistory(`⏳ ${p.name} attend patiemment qu'un autre joueur vienne le délivrer...`);
+                nextTurn();
+                return;
+            }
+
+            isAnimating = true;
+            const diceEl = document.getElementById('dice-container');
+            diceEl.classList.add('rolling');
+
+            setTimeout(() => {
+                diceEl.classList.remove('rolling');
+                let roll = Math.floor(Math.random() * 6) + 1;
+                diceEl.textContent = ['⚀','⚁','⚂','⚃','⚄','⚅'][roll - 1];
+
+                logHistory(`🎲 ${p.name} lance le dé et obtient <b>${roll}</b>.`);
+                movePlayer(currentPlayerIndex, roll);
+            }, 600);
+        }
+
+        function movePlayerAbsolute(playerIdx, targetPos) {
+            let p = players[playerIdx];
+            if (targetPos > TOTAL_TILES) {
+                let excess = targetPos - TOTAL_TILES;
+                targetPos = TOTAL_TILES - excess;
+            }
+            p.pos = targetPos;
+            renderBoard();
+            renderTokens();
+            updateUI();
+        }
+
+        function movePlayer(playerIdx, roll) {
+            let p = players[playerIdx];
+            let targetPos = p.pos + roll;
+
+            if (targetPos > TOTAL_TILES) {
+                let excess = targetPos - TOTAL_TILES;
+                targetPos = TOTAL_TILES - excess;
+                logHistory(`↩️ ${p.name} dépasse la case 63 et recule de ${excess} cases vers la ${targetPos} !`);
+            }
+
+            p.pos = targetPos;
+            renderBoard();
+            renderTokens();
+
+            setTimeout(() => {
+                checkSpecialTile(playerIdx);
+            }, 500);
+        }
+
+        function checkSpecialTile(playerIdx) {
+            let p = players[playerIdx];
+            let pos = p.pos;
+
+            if (pos % 9 === 0 && pos < 63) {
+                let jump = pos + pos;
+                logHistory(`🦆 Case Oie ! ${p.name} vole à nouveau d'autant et s'envole vers la case ${jump > 63 ? 63 : jump}.`);
+                if (jump <= 63) {
+                    p.pos = jump;
+                    renderBoard();
+                    renderTokens();
+                    setTimeout(() => checkSpecialTile(playerIdx), 500);
+                    return;
+                }
+            }
+
+            if (SPECIAL_TILES[pos]) {
+                let st = SPECIAL_TILES[pos];
+                logHistory(`${st.icon} ${p.name} atterrit sur ${st.name} : ${st.desc}`);
+                
+                if (st.target) {
+                    checkPrisonersRelease(pos, playerIdx);
+                    p.pos = st.target;
+                    renderBoard();
+                    renderTokens();
+                } else if (st.skipTurns) {
+                    p.skipTurn = st.skipTurns;
+                } else if (st.imprisoned) {
+                    if (pos === 31) p.inWell = true;
+                    if (pos === 52) p.inPrison = true;
+                } else if (st.type === 'win') {
+                    triggerWin(p);
+                    return;
+                }
+            } else {
+                checkPrisonersRelease(pos, playerIdx);
+            }
+
+            // Piocher une nouvelle carte tactique à la fin du tour
+            giveRandomCard(p);
+            logHistory(`🎴 ${p.name} pioche une nouvelle carte action secrète.`);
+
+            isAnimating = false;
+            
+            if (p.pos === 63) {
+                triggerWin(p);
+            } else {
+                if (p.extraTurn) {
+                    p.extraTurn = false;
+                    logHistory(`⚡ ${p.name} bénéficie d'un tour supplémentaire grâce à sa carte Pas pressé !`);
+                    updateUI();
+                    if (p.isAI) setTimeout(() => rollDiceAI(), 1000);
+                } else {
+                    nextTurn();
+                }
+            }
+        }
+
+        function checkPrisonersRelease(pos, arrivingPlayerIdx) {
+            players.forEach((pl, idx) => {
+                if (idx !== arrivingPlayerIdx && pl.pos === pos) {
+                    if (pl.inWell || pl.inPrison) {
+                        pl.inWell = false;
+                        pl.inPrison = false;
+                        logHistory(`🤝 ${players[arrivingPlayerIdx].name} délivre ${pl.name} de sa prison/puits !`);
+                    }
+                }
+            });
+        }
+
+        function triggerWin(p) {
+            gameActive = false;
+            showModal("🎉 Victoire Enchantée !", `${p.name} (${p.icon}) a atteint le Jardin Secret le premier ! La forêt célèbre ce magnifique voyage. 🌸🌿`);
+            logHistory(`🏆 <b>${p.name} remporte la partie du Jeu de l'Oie !</b>`);
+            isAnimating = false;
+        }
+
+        function nextTurn() {
+            currentPlayerIndex = (currentPlayerIndex + 1) % playerCount;
+            updateUI();
+            checkAITurn();
+        }
+
+        function checkAITurn() {
+            if (!gameActive) return;
+            let p = players[currentPlayerIndex];
+
+            if (p.isAI) {
+                document.getElementById('turn-status-msg').textContent = `${p.name} réfléchit...`;
+                setTimeout(() => {
+                    if (!gameActive) return;
+                    // IA peut utiliser une carte si elle en a
+                    if (p.cards.length > 0 && Math.random() > 0.6) {
+                        let randomCardIdx = Math.floor(Math.random() * p.cards.length);
+                        let card = p.cards[randomCardIdx];
+                        if (card.type === 'self') {
+                            p.cards.splice(randomCardIdx, 1);
+                            logHistory(`🤖🃏 ${p.name} (IA) joue sa carte ${card.name} !`);
+                            card.effect(p);
+                            updateUI();
+                        }
+                    }
+                    document.getElementById('turn-status-msg').textContent = `Prêt à lancer le dé...`;
+                    rollDiceAI();
+                }, 1200);
+            } else {
+                document.getElementById('turn-status-msg').textContent = `À vous de jouer !`;
+            }
+        }
+
+        function rollDiceAI() {
+            let p = players[currentPlayerIndex];
+            
+            if (p.skipTurn > 0) {
+                p.skipTurn--;
+                logHistory(`🏨 ${p.name} se repose à l'hôtel et passe son tour.`);
+                nextTurn();
+                return;
+            }
+
+            if (p.inWell || p.inPrison) {
+                logHistory(`⏳ ${p.name} attend patiemment dans sa cachette...`);
+                nextTurn();
+                return;
+            }
+
+            isAnimating = true;
+            let roll = Math.floor(Math.random() * 6) + 1;
+            const diceEl = document.getElementById('dice-container');
+            diceEl.textContent = ['⚀','⚁','⚂','⚃','⚄','⚅'][roll - 1];
+
+            logHistory(`🎲 ${p.name} (IA) lance le dé et obtient <b>${roll}</b>.`);
+            movePlayer(currentPlayerIndex, roll);
+        }
+
+        function logHistory(msg) {
+            const historyLog = document.getElementById('history-log');
+            if (historyLog.querySelector('.text-gray-400')) {
+                historyLog.innerHTML = '';
+            }
+            let div = document.createElement('div');
+            div.className = "p-1.5 bg-emerald-50/50 rounded-lg border border-emerald-100 text-xs leading-relaxed";
+            div.innerHTML = msg;
+            historyLog.prepend(div);
+        }
+
+        function showModal(title, text) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-text').textContent = text;
+            document.getElementById('modal-overlay').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.add('hidden');
+            if (!gameActive && players.some(p => p.pos === 63)) {
+                resetGame();
+            }
+        }
+
+        window.onload = function() {
+            renderBoard();
+            renderPlayerConfigInputs();
+        };
+    </script>
+</body>
+</html>
